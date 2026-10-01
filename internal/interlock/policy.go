@@ -35,6 +35,9 @@ func (p Policy) ValidateOpen(snapshot EquipmentSnapshot, direction model.Directi
 }
 
 func (p Policy) ValidateClose(snapshot EquipmentSnapshot, direction model.Direction) error {
+	if snapshot.Emergency {
+		return fmt.Errorf("interlock emergency active chamber=%s", snapshot.ChamberID)
+	}
 	position := snapshot.Gates[direction]
 	if position == model.GateClosed || position == model.GateClosing {
 		return fmt.Errorf("gate %s already closing or closed", direction)

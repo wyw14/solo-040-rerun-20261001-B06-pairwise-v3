@@ -38,6 +38,10 @@ func createPlanHandler(runtime *Runtime) http.HandlerFunc {
 			}
 			vessels = append(vessels, vessel)
 		}
+		if runtime.Safety.Blocking(input.ChamberID) {
+			writeError(w, http.StatusConflict, errors.New("chamber is in emergency lockdown: reset required before planning a transit"))
+			return
+		}
 		plan, err := runtime.Schedule.Create(r.Context(), input.ChamberID, input.Direction, vessels)
 		if err != nil {
 			writeError(w, http.StatusConflict, err)

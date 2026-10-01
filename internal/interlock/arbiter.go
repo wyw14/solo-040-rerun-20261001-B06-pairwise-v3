@@ -49,6 +49,19 @@ func (a *Arbiter) Release(chamberID, owner string) bool {
 	return true
 }
 
+// ForceRelease drops any reservation on a chamber regardless of owner. Used by
+// emergency reset so an operator cannot be permanently blocked by a reservation
+// whose originating command was cancelled.
+func (a *Arbiter) ForceRelease(chamberID string) bool {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if _, ok := a.active[chamberID]; !ok {
+		return false
+	}
+	delete(a.active, chamberID)
+	return true
+}
+
 func (a *Arbiter) Current(chamberID string) (Reservation, bool) {
 	a.mu.Lock()
 	reservation, ok := a.active[chamberID]

@@ -31,6 +31,9 @@ func NewPublisher(store *Store, recorder *journal.Recorder, now func() time.Time
 	return &Publisher{store: store, recorder: recorder, now: now}
 }
 
+// Store exposes the underlying signal store for emergency compensation.
+func (p *Publisher) Store() *Store { return p.store }
+
 func (p *Publisher) Publish(ctx context.Context, cycle model.TransitCycle, vessels []model.Vessel, aspect model.SignalAspect) (Publication, error) {
 	publication := Publication{
 		CycleID: cycle.ID, Generation: cycle.Generation,

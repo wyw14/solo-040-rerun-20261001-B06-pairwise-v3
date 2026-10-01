@@ -81,7 +81,7 @@ func NewRuntime(ctx context.Context, dataDirectory string) (*Runtime, error) {
 		return samples[len(samples)-1].Meters
 	}
 	emergencyActive := func(chamberID string) bool {
-		return safetyCoordinator != nil && safetyCoordinator.Active(chamberID)
+		return safetyCoordinator != nil && safetyCoordinator.Blocking(chamberID)
 	}
 	interlockCoordinator := interlock.NewCoordinator(
 		interlock.DefaultPolicy(), interlock.NewArbiter(), gateController,
@@ -91,10 +91,19 @@ func NewRuntime(ctx context.Context, dataDirectory string) (*Runtime, error) {
 	cycleService := cycle.NewService(cycleCoordinator, admissionService)
 	safetyCoordinator = safety.NewCoordinator(gateCommands, barrier, recorder, now)
 	safetyService := safety.NewService(safetyCoordinator, cycleCoordinator)
+	safetyService.BindPlanAbort(func(ctx context.Context, chamberID string) error {
+		_, err := scheduleService.AbortChamber(ctx, chamberID, "emergency stop")
+		return err
+	})
+	cycleService.BindSafetyGate(safetyService.Blocking)
 	signalService.BindTransitLookup(cycleCoordinator)
 	replayer := journal.NewReplayer(store)
 	recovery := cycle.NewRecovery(replayer, cycleCoordinator)
 	if _, err := recovery.RestoreAll(ctx); err != nil {
+		return nil, err
+	}
+	safetyRecovery := safety.NewRecovery(store, safetyCoordinator)
+	if err := safetyRecovery.RestoreAll(ctx); err != nil {
 		return nil, err
 	}
 	health := monitor.NewHealthRegistry()
@@ -114,7 +123,7 @@ func NewRuntime(ctx context.Context, dataDirectory string) (*Runtime, error) {
 		Planner: planner, Schedule: scheduleService, Hydraulics: hydraulicsController,
 		Interlocks: interlockCoordinator, Cycles: cycleCoordinator, CycleService: cycleService,
 		Leases: leaseService, LeaseSweeper: leaseSweeper, Safety: safetyService,
-		Snapshot:  monitor.NewSnapshot(cycleCoordinator, gateState, admissionService, signalService, safetyService, now),
+		Snapshot:  monitor.NewSnapshot(cycleCoordinator, gateState, gateCommands, admissionService, signalService, safetyService, now),
 		Incidents: monitor.NewIncidentReview(store), Health: health, Recovery: recovery,
 		Chambers: chambers, Now: now,
 	}, nil

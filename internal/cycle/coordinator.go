@@ -143,3 +143,11 @@ func (c *Coordinator) Restore(cycleValue model.TransitCycle) {
 	}
 	c.mu.Unlock()
 }
+
+// Clear retires the current transit for a chamber (used after emergency reset)
+// so the next plan starts a fresh generation. The generation counter survives.
+func (c *Coordinator) Clear(chamberID string) {
+	c.mu.Lock()
+	delete(c.current, chamberID)
+	c.mu.Unlock()
+}

@@ -31,6 +31,9 @@ func epochKey(chamberID string, device model.DeviceKind) string {
 }
 
 func (c *Commands) Issue(cycle model.TransitCycle, device model.DeviceKind, action string, target float64, now time.Time) (model.DeviceCommand, error) {
+	if cycle.Stage.Terminal() {
+		return model.DeviceCommand{}, fmt.Errorf("terminal transit %s cannot issue device commands", cycle.ID)
+	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	key := epochKey(cycle.ChamberID, device)
@@ -106,7 +109,7 @@ func (c *Commands) CancelChamber(chamberID string, now time.Time) []model.Device
 func (c *Commands) Pending(chamberID string) []model.DeviceCommand {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	var pending []model.DeviceCommand
+	pending := make([]model.DeviceCommand, 0)
 	for _, commandID := range c.byChamber[chamberID] {
 		command := c.byID[commandID]
 		if !command.State.Terminal() {

@@ -63,3 +63,15 @@ func (b *Barrier) Pending(chamberID string) int {
 	b.mu.Unlock()
 	return count
 }
+
+// Reset abandons outstanding pending work after an explicit operator reset.
+// Waiters are released so a draining emergency that is being overridden cannot hang.
+func (b *Barrier) Reset(chamberID string) {
+	b.mu.Lock()
+	delete(b.pending, chamberID)
+	for _, waiter := range b.waiters[chamberID] {
+		close(waiter)
+	}
+	delete(b.waiters, chamberID)
+	b.mu.Unlock()
+}

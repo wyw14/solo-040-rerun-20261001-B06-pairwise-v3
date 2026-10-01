@@ -2,6 +2,7 @@ package interlock
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -38,6 +39,9 @@ func (c *Coordinator) Snapshot(chamberID string) EquipmentSnapshot {
 }
 
 func (c *Coordinator) RequestOpen(ctx context.Context, cycle model.TransitCycle, direction model.Direction, owner string) (model.DeviceCommand, error) {
+	if cycle.Stage.Terminal() {
+		return model.DeviceCommand{}, errors.New("terminal transit cannot drive equipment")
+	}
 	if err := c.policy.ValidateOpen(c.Snapshot(cycle.ChamberID), direction); err != nil {
 		return model.DeviceCommand{}, err
 	}
@@ -51,6 +55,9 @@ func (c *Coordinator) RequestOpen(ctx context.Context, cycle model.TransitCycle,
 }
 
 func (c *Coordinator) RequestClose(ctx context.Context, cycle model.TransitCycle, direction model.Direction) (model.DeviceCommand, error) {
+	if cycle.Stage.Terminal() {
+		return model.DeviceCommand{}, errors.New("terminal transit cannot drive equipment")
+	}
 	if err := c.policy.ValidateClose(c.Snapshot(cycle.ChamberID), direction); err != nil {
 		return model.DeviceCommand{}, err
 	}
@@ -63,6 +70,9 @@ func (c *Coordinator) Release(chamberID, owner string) error {
 	}
 	return nil
 }
+
+// ForceRelease clears a chamber reservation without an owner check (emergency reset).
+func (c *Coordinator) ForceRelease(chamberID string) { c.arbiter.ForceRelease(chamberID) }
 
 func (c *Coordinator) Reservation(chamberID string) (Reservation, bool) {
 	return c.arbiter.Current(chamberID)

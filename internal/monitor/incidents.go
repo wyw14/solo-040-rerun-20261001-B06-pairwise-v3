@@ -60,6 +60,8 @@ func incidentMeaning(kind model.EventType) (string, string, bool) {
 		return "critical", "Emergency stop requested", true
 	case model.EventEmergencySettled:
 		return "notice", "Emergency equipment reached stable state", true
+	case model.EventEmergencyReset:
+		return "notice", "Emergency lockdown reset by operator", true
 	case model.EventReplayWarning:
 		return "warning", "Recovery sequence requires review", true
 	case model.EventPlanCancelled:

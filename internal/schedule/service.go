@@ -41,3 +41,8 @@ func (s *Service) Cancel(ctx context.Context, planID uuid.UUID, note string, pub
 func (s *Service) Active(chamberID string) []model.ConvoyPlan {
 	return s.planner.Active(chamberID)
 }
+
+// AbortChamber cancels the chamber's active plans for an emergency stop.
+func (s *Service) AbortChamber(ctx context.Context, chamberID, note string) (int, error) {
+	return s.planner.AbortChamber(ctx, chamberID, note, s.publisher)
+}

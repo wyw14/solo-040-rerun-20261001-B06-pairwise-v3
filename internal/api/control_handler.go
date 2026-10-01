@@ -17,18 +17,18 @@ func openGateHandler(runtime *Runtime) http.HandlerFunc {
 			writeError(w, http.StatusBadRequest, errors.New("invalid gate direction"))
 			return
 		}
-		command, err := runtime.Interlocks.RequestOpen(r.Context(), mustCurrent(runtime, chamberID), direction, "http:"+requestID(r.Context()))
+		cycleValue, err := runtime.CycleService.RequireActive(chamberID)
+		if err != nil {
+			writeError(w, http.StatusConflict, err)
+			return
+		}
+		command, err := runtime.Interlocks.RequestOpen(r.Context(), cycleValue, direction, "http:"+requestID(r.Context()))
 		if err != nil {
 			writeError(w, http.StatusConflict, err)
 			return
 		}
 		writeJSON(w, http.StatusAccepted, command)
 	}
-}
-
-func mustCurrent(runtime *Runtime, chamberID string) model.TransitCycle {
-	cycleValue, _ := runtime.Cycles.Current(chamberID)
-	return cycleValue
 }
 
 func commandAckHandler(runtime *Runtime) http.HandlerFunc {
@@ -63,6 +63,20 @@ func emergencyHandler(runtime *Runtime) http.HandlerFunc {
 			writeError(w, http.StatusConflict, err)
 			return
 		}
+		writeJSON(w, http.StatusOK, record)
+	}
+}
+
+func emergencyResetHandler(runtime *Runtime) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		chamberID := chi.URLParam(r, "chamberID")
+		record, err := runtime.Safety.Reset(r.Context(), chamberID)
+		if err != nil {
+			writeError(w, http.StatusConflict, err)
+			return
+		}
+		// Release any reservation left by a command cancelled during the stop.
+		runtime.Interlocks.ForceRelease(chamberID)
 		writeJSON(w, http.StatusOK, record)
 	}
 }
