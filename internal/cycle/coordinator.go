@@ -21,6 +21,7 @@ type Coordinator struct {
 	gates       *gate.Controller
 	hydraulics  *hydraulics.Controller
 	recorder    *journal.Recorder
+	blocked     func(string) bool
 	now         func() time.Time
 }
 
@@ -34,7 +35,25 @@ func NewCoordinator(gates *gate.Controller, hydraulicsController *hydraulics.Con
 	}
 }
 
+// SetBlockedFunc installs the safety-latch predicate that must allow a chamber
+// before a new transit generation can start.
+func (c *Coordinator) SetBlockedFunc(blocked func(string) bool) {
+	c.mu.Lock()
+	c.blocked = blocked
+	c.mu.Unlock()
+}
+
 func (c *Coordinator) Start(ctx context.Context, plan model.ConvoyPlan) (model.TransitCycle, error) {
+	// Consult the safety latch outside the cycle lock: EmergencyStop acquires
+	// the cycle lock and then the safety lock, so nesting them the other way
+	// here would deadlock. The command-generation boundary in gate.Commands
+	// remains the authoritative guard against races.
+	c.mu.RLock()
+	blocked := c.blocked
+	c.mu.RUnlock()
+	if blocked != nil && blocked(plan.ChamberID) {
+		return model.TransitCycle{}, errors.New("chamber is under an unreset emergency; new transit forbidden until explicit reset")
+	}
 	c.mu.Lock()
 	if active, ok := c.current[plan.ChamberID]; ok && !active.Stage.Terminal() {
 		c.mu.Unlock()

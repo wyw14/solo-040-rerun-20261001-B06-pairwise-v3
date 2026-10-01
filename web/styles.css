@@ -53,6 +53,9 @@ th { color: #91a0a8; font-weight: 600; }
 .status.warning::before { background: #f2c14e; }
 .status.critical::before { background: #ef6f6c; }
 .message { min-height: 22px; color: #f2c14e; font-size: 13px; margin-top: 10px; white-space: pre-wrap; }
+.emergency { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-top: 12px; padding: 10px 12px; border: 1px solid #ef6f6c; border-radius: 4px; background: #8f3434; color: #fff; font-size: 13px; }
+.emergency button { margin-left: auto; min-height: 32px; padding: 4px 12px; }
+.emergency[hidden] { display: none; }
 @media (max-width: 780px) {
   header { height: auto; padding: 14px 18px; align-items: flex-start; flex-direction: column; gap: 10px; }
   main { padding: 20px 16px 40px; }

@@ -16,6 +16,7 @@ type Commands struct {
 	byID      map[uuid.UUID]model.DeviceCommand
 	byChamber map[string][]uuid.UUID
 	nextEpoch map[string]uint64
+	blocked   func(string) bool
 }
 
 func NewCommands() *Commands {
@@ -26,6 +27,14 @@ func NewCommands() *Commands {
 	}
 }
 
+// SetBlockedFunc installs the safety latch predicate consulted before any new
+// actuator command is generated. This covers gate and valve commands alike.
+func (c *Commands) SetBlockedFunc(blocked func(string) bool) {
+	c.mu.Lock()
+	c.blocked = blocked
+	c.mu.Unlock()
+}
+
 func epochKey(chamberID string, device model.DeviceKind) string {
 	return chamberID + ":" + string(device)
 }
@@ -33,6 +42,12 @@ func epochKey(chamberID string, device model.DeviceKind) string {
 func (c *Commands) Issue(cycle model.TransitCycle, device model.DeviceKind, action string, target float64, now time.Time) (model.DeviceCommand, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	if c.blocked != nil && c.blocked(cycle.ChamberID) {
+		return model.DeviceCommand{}, fmt.Errorf("chamber %s is under an unreset emergency; new actuator commands are forbidden", cycle.ChamberID)
+	}
+	if cycle.Stage.Terminal() {
+		return model.DeviceCommand{}, fmt.Errorf("transit %s is in terminal stage %s and cannot drive devices", cycle.ID, cycle.Stage)
+	}
 	key := epochKey(cycle.ChamberID, device)
 	c.nextEpoch[key]++
 	command, err := model.NewDeviceCommand(cycle, c.nextEpoch[key], device, action, target, now)
@@ -106,7 +121,7 @@ func (c *Commands) CancelChamber(chamberID string, now time.Time) []model.Device
 func (c *Commands) Pending(chamberID string) []model.DeviceCommand {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	var pending []model.DeviceCommand
+	pending := make([]model.DeviceCommand, 0)
 	for _, commandID := range c.byChamber[chamberID] {
 		command := c.byID[commandID]
 		if !command.State.Terminal() {

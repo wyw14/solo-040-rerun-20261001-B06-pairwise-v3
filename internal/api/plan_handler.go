@@ -29,6 +29,14 @@ func createPlanHandler(runtime *Runtime) http.HandlerFunc {
 			writeError(w, http.StatusBadRequest, err)
 			return
 		}
+		if !input.Direction.Valid() {
+			writeError(w, http.StatusBadRequest, errors.New("invalid direction"))
+			return
+		}
+		if runtime.Safety.Blocking(input.ChamberID) {
+			writeError(w, http.StatusConflict, errors.New("chamber is under an unreset emergency; reset required before new transit"))
+			return
+		}
 		vessels := make([]model.Vessel, 0, len(input.Vessels))
 		for _, item := range input.Vessels {
 			vessel, err := model.NewVessel(item.Name, item.CallSign, item.LengthM)

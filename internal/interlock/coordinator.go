@@ -11,15 +11,15 @@ import (
 
 // Coordinator keeps policy evaluation and command reservation in one flow.
 type Coordinator struct {
-	policy    Policy
-	arbiter   *Arbiter
-	gates     *gate.Controller
-	level     func(string) float64
-	emergency func(string) bool
+	policy  Policy
+	arbiter *Arbiter
+	gates   *gate.Controller
+	level   func(string) float64
+	blocked func(string) bool
 }
 
-func NewCoordinator(policy Policy, arbiter *Arbiter, gates *gate.Controller, level func(string) float64, emergency func(string) bool) *Coordinator {
-	return &Coordinator{policy: policy, arbiter: arbiter, gates: gates, level: level, emergency: emergency}
+func NewCoordinator(policy Policy, arbiter *Arbiter, gates *gate.Controller, level func(string) float64, blocked func(string) bool) *Coordinator {
+	return &Coordinator{policy: policy, arbiter: arbiter, gates: gates, level: level, blocked: blocked}
 }
 
 func (c *Coordinator) Snapshot(chamberID string) EquipmentSnapshot {
@@ -28,8 +28,8 @@ func (c *Coordinator) Snapshot(chamberID string) EquipmentSnapshot {
 		level = c.level(chamberID)
 	}
 	emergency := false
-	if c.emergency != nil {
-		emergency = c.emergency(chamberID)
+	if c.blocked != nil {
+		emergency = c.blocked(chamberID)
 	}
 	return EquipmentSnapshot{
 		ChamberID: chamberID, Gates: c.gates.State().Snapshot(chamberID),

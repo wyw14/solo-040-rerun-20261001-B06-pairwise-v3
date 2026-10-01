@@ -17,7 +17,12 @@ func openGateHandler(runtime *Runtime) http.HandlerFunc {
 			writeError(w, http.StatusBadRequest, errors.New("invalid gate direction"))
 			return
 		}
-		command, err := runtime.Interlocks.RequestOpen(r.Context(), mustCurrent(runtime, chamberID), direction, "http:"+requestID(r.Context()))
+		cycleValue, err := activeCycle(runtime, chamberID)
+		if err != nil {
+			writeError(w, http.StatusConflict, err)
+			return
+		}
+		command, err := runtime.Interlocks.RequestOpen(r.Context(), cycleValue, direction, "http:"+requestID(r.Context()))
 		if err != nil {
 			writeError(w, http.StatusConflict, err)
 			return
@@ -26,9 +31,18 @@ func openGateHandler(runtime *Runtime) http.HandlerFunc {
 	}
 }
 
-func mustCurrent(runtime *Runtime, chamberID string) model.TransitCycle {
-	cycleValue, _ := runtime.Cycles.Current(chamberID)
-	return cycleValue
+// activeCycle returns the current transit only when it is still drivable. A
+// terminal (e.g. emergency) transit must never drive the gates, even if it is
+// the most recent record for the chamber.
+func activeCycle(runtime *Runtime, chamberID string) (model.TransitCycle, error) {
+	cycleValue, ok := runtime.Cycles.Current(chamberID)
+	if !ok {
+		return model.TransitCycle{}, errors.New("active transit not found")
+	}
+	if cycleValue.Stage.Terminal() {
+		return model.TransitCycle{}, errors.New("transit is in terminal stage " + string(cycleValue.Stage) + "; reset required before new transit")
+	}
+	return cycleValue, nil
 }
 
 func commandAckHandler(runtime *Runtime) http.HandlerFunc {
@@ -59,6 +73,17 @@ func commandAckHandler(runtime *Runtime) http.HandlerFunc {
 func emergencyHandler(runtime *Runtime) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		record, err := runtime.Safety.EmergencyStop(r.Context(), chi.URLParam(r, "chamberID"))
+		if err != nil {
+			writeError(w, http.StatusConflict, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, record)
+	}
+}
+
+func emergencyResetHandler(runtime *Runtime) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		record, err := runtime.Safety.Reset(r.Context(), chi.URLParam(r, "chamberID"))
 		if err != nil {
 			writeError(w, http.StatusConflict, err)
 			return

@@ -4,7 +4,29 @@
 <main><div class="page-title"><div><h1>Interlock control</h1><div class="muted">Mutual exclusion and emergency equipment state</div></div></div><div class="grid" id="interlock-grid"></div><div class="message" id="message"></div></main>
 <script src="/assets/app.js"></script><script>
 const {api,setMessage,withBusy}=window.LockFlow; const host=document.querySelector('#interlock-grid'); const message=document.querySelector('#message');
+const blockingStatuses=new Set(['draining','completed','failed']);
 async function stop(chamber,button){await withBusy(button,async()=>{try{await api(`/api/chambers/${chamber}/emergency`,{method:'POST',body:'{}'});await load();}catch(e){setMessage(message,e.message);}});}
-async function load(){const data=await api('/api/interlocks');host.innerHTML=Object.entries(data).map(([id,item])=>`<section class="panel"><h2>${id}</h2><table><tr><th>Emergency</th><td>${item.emergency.status}</td></tr><tr><th>Level</th><td>${item.equipment.LevelM??item.equipment.level_m??0} m</td></tr><tr><th>Pending commands</th><td>${item.pending_commands.length}</td></tr></table><button class="danger" data-stop="${id}">Emergency stop</button></section>`).join('');host.querySelectorAll('[data-stop]').forEach((button)=>button.addEventListener('click',()=>stop(button.dataset.stop,button)));}
+async function reset(chamber,button){await withBusy(button,async()=>{try{await api(`/api/chambers/${chamber}/emergency/reset`,{method:'POST',body:'{}'});setMessage(message,`Emergency reset for ${chamber}.`);await load();}catch(e){setMessage(message,e.message);}});}
+async function load(){
+  const data=await api('/api/interlocks');
+  host.innerHTML=Object.entries(data).filter(([id])=>id!=='signal_handoffs').map(([id,item])=>{
+    const status=item.emergency.status;
+    const blocking=blockingStatuses.has(status);
+    const commands=item.pending_commands.map((command)=>`<tr><td>${command.device}</td><td>${command.action}</td><td>${command.state}</td></tr>`).join('')
+      || '<tr><td colspan="3" class="muted">None</td></tr>';
+    return `<section class="panel"><h2>${id}</h2><table>
+      <tr><th>Emergency</th><td class="${blocking?'':''}">${status}${item.emergency.message?` — ${item.emergency.message}`:''}</td></tr>
+      <tr><th>Level</th><td>${item.equipment.LevelM??item.equipment.level_m??0} m</td></tr>
+      <tr><th>Pending equipment</th><td>${item.pending_equipment}</td></tr>
+      <tr><th>Pending commands</th><td>${item.pending_commands.length}</td></tr>
+    </table>
+    <table><thead><tr><th>Device</th><th>Action</th><th>State</th></tr></thead><tbody>${commands}</tbody></table>
+    <div class="form-row"><button class="danger" data-stop="${id}" ${status==='draining'?'disabled':''}>Emergency stop</button>
+    <button data-reset="${id}" ${!blocking||status==='draining'?'disabled':''}>Acknowledge &amp; reset</button></div></section>`;
+  }).join('');
+  host.querySelectorAll('[data-stop]').forEach((button)=>button.addEventListener('click',()=>stop(button.dataset.stop,button)));
+  host.querySelectorAll('[data-reset]').forEach((button)=>button.addEventListener('click',()=>reset(button.dataset.reset,button)));
+}
 load().catch((e)=>setMessage(message,e.message));
+setInterval(()=>load().catch(()=>{}),5000);
 </script></body></html>

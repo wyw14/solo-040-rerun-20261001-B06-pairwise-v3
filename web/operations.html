@@ -11,7 +11,7 @@
       <div class="form-row"><div><label for="vessel">Vessel</label><input id="vessel" value="River Star"></div><div><label for="call-sign">Call sign</label><input id="call-sign" value="RS-204"></div><div><label>&nbsp;</label><button type="submit">Create and admit</button></div></div>
       <div class="message" id="plan-message"></div>
     </form></section>
-    <section class="panel"><h2>Current transit</h2><div class="metrics"><div class="metric">Chamber<strong id="metric-chamber">-</strong></div><div class="metric">Stage<strong id="metric-stage">-</strong></div><div class="metric">Cycle<strong id="metric-cycle">-</strong></div></div></section>
+    <section class="panel"><h2>Current transit</h2><div class="metrics"><div class="metric">Chamber<strong id="metric-chamber">-</strong></div><div class="metric">Stage<strong id="metric-stage">-</strong></div><div class="metric">Cycle<strong id="metric-cycle">-</strong></div><div class="metric">Pending cmds<strong id="metric-pending">-</strong></div></div><div class="emergency" id="emergency-banner" hidden><strong id="emergency-status"></strong><span id="emergency-message"></span><button type="button" id="emergency-reset">Acknowledge &amp; reset</button></div></section>
     <section class="panel wide"><h2>Active plans</h2><table><thead><tr><th>Chamber</th><th>Plan</th><th>Direction</th><th>Vessels</th><th>Created</th></tr></thead><tbody id="plans"></tbody></table></section>
   </div>
 </main><script src="/assets/app.js"></script><script src="/assets/operations.js"></script>

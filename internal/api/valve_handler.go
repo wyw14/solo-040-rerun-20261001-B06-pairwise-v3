@@ -23,9 +23,9 @@ func valveRampHandler(runtime *Runtime) http.HandlerFunc {
 			return
 		}
 		chamberID := chi.URLParam(r, "chamberID")
-		cycleValue, ok := runtime.Cycles.Current(chamberID)
-		if !ok {
-			writeError(w, http.StatusConflict, errors.New("active transit not found"))
+		cycleValue, err := activeCycle(runtime, chamberID)
+		if err != nil {
+			writeError(w, http.StatusConflict, err)
 			return
 		}
 		result, err := runtime.Hydraulics.RampTo(r.Context(), cycleValue, input.Targets)
